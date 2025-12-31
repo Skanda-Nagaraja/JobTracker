@@ -1,0 +1,48 @@
+name: Scrape Jobs
+
+on:
+  schedule:
+    # Runs every 30 minutes (UTC)
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: job-radar/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r job-radar/requirements.txt
+
+      - name: Run scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # Optional: LinkedIn parameters
+          LINKEDIN_ENABLE: ${{ secrets.LINKEDIN_ENABLE }}
+          LINKEDIN_QUERIES: ${{ secrets.LINKEDIN_QUERIES }}
+          LINKEDIN_PAGES: ${{ secrets.LINKEDIN_PAGES }}
+          LINKEDIN_TIMESPAN: ${{ secrets.LINKEDIN_TIMESPAN }}
+          LINKEDIN_USER_AGENT: ${{ secrets.LINKEDIN_USER_AGENT }}
+          LINKEDIN_USE_TOP_COMPANIES: ${{ secrets.LINKEDIN_USE_TOP_COMPANIES }}
+          # Optional: Telegram notifications (iMessage is macOS-only, not available on GitHub runners)
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          # Keep runs efficient and polite
+          python job-radar/scraper.py --resolve-links --resolve-limit 60
+
+
