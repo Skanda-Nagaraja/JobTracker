@@ -220,6 +220,60 @@ def _company_in_whitelist(company: str, white: List[str]) -> bool:
         if norm_w in norm_c or norm_c in norm_w:
             return True
     return False
+
+
+def _title_matches_rules(
+    title: str,
+    include_terms: List[str],
+    exclude_terms: List[str],
+    require_newgrad: bool,
+) -> bool:
+    t = (title or "").lower()
+    if not t:
+        return False
+    # Exclude first
+    for bad in exclude_terms:
+        if bad and bad in t:
+            return False
+    # New-grad gate (role seniority)
+    if require_newgrad:
+        newgrad_terms = [
+            "new grad",
+            "new college grad",
+            "university grad",
+            "graduate",
+            "entry level",
+            "engineer i",
+            "software engineer i",
+            "swe i",
+            "sde i",
+            "junior",
+        ]
+        if not any(k in t for k in newgrad_terms):
+            return False
+    # Software-role gate
+    default_includes = [
+        "software engineer",
+        "swe",
+        "sde",
+        "developer",
+        "backend",
+        "front end",
+        "frontend",
+        "full stack",
+        "platform engineer",
+        "site reliability",
+        "sre",
+        "devops",
+        "data engineer",
+        "ml engineer",
+        "android engineer",
+        "ios engineer",
+        "security engineer",
+        "firmware engineer",
+    ]
+    terms = include_terms or default_includes
+    return any(k in t for k in terms)
 def scrape_markdown(repo: str, path: str = "README.md") -> List[Dict]:
     # Try both common default branches
     branches = ("main", "master")
@@ -531,6 +585,22 @@ def main() -> None:
             after = len(linkedin_jobs)
             if args.dry_run:
                 print(f"[info] LinkedIn whitelist applied: kept {after}/{before}")
+
+        # Title filters (configurable)
+        include_env = os.getenv("LINKEDIN_TITLE_INCLUDE", "")
+        exclude_env = os.getenv("LINKEDIN_TITLE_EXCLUDE", "")
+        include_terms = [s.strip().lower() for s in include_env.split(";") if s.strip()]
+        exclude_terms = [s.strip().lower() for s in exclude_env.split(";") if s.strip()]
+        require_newgrad = os.getenv("LINKEDIN_REQUIRE_NEWGRAD", "true").lower() == "true"
+
+        before_titles = len(linkedin_jobs)
+        linkedin_jobs = [
+            j
+            for j in linkedin_jobs
+            if _title_matches_rules(j.get("title", ""), include_terms, exclude_terms, require_newgrad)
+        ]
+        if args.dry_run:
+            print(f"[info] LinkedIn title filter applied: kept {len(linkedin_jobs)}/{before_titles}")
         if args.dry_run:
             for job in linkedin_jobs[:25]:
                 print(f"{job['company']} | {job['title']} | {job['location']} | {job['url']} | source={job['source']}")
@@ -541,10 +611,12 @@ def main() -> None:
                     new_jobs += 1
                     notify(f'New job: {job["title"]} @ {job["company"]}\n{job["url"]}')
 
-    if args.dry_run:
-        print("[info] Dry run complete. No database changes were made.")
-    else:
-        print(f"[info] Completed. New jobs added: {new_jobs}")
+    msg = (
+        "[info] Dry run complete. No database changes were made."
+        if args.dry_run
+        else f"[info] Completed. New jobs added: {new_jobs}"
+    )
+    print(msg)
 
 
 if __name__ == "__main__":

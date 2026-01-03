@@ -50,6 +50,22 @@ declare module "@supabase/supabase-js" {
   export function createClient(url: string, key: string, opts?: any): any;
 }
 
+// pdfjs
+declare module "pdfjs-dist" {
+  export const GlobalWorkerOptions: any;
+  export const getDocument: any;
+}
+declare module "pdfjs-dist/build/pdf.worker.min.mjs?url" {
+  const src: string;
+  export default src;
+}
+
+// MUI fallback stubs (for lint when types not resolved)
+declare module "@mui/material/*" {
+  const Component: any;
+  export default Component;
+}
+
 // Vite shims
 declare module "vite" {
   export const defineConfig: any;
@@ -61,6 +77,31 @@ declare module "@vitejs/plugin-react" {
 declare module "@tailwindcss/vite" {
   const plugin: any;
   export default plugin;
+}
+
+declare module "react-router-dom" {
+  export const BrowserRouter: any;
+  export const Routes: any;
+  export const Route: any;
+  export const Navigate: any;
+  export const Link: any;
+  export const useNavigate: any;
+  export const useLocation: any;
+}
+
+declare module "recharts" {
+  export const BarChart: any;
+  export const Bar: any;
+  export const XAxis: any;
+  export const YAxis: any;
+  export const Tooltip: any;
+  export const ResponsiveContainer: any;
+  export const PieChart: any;
+  export const Pie: any;
+  export const Cell: any;
+  export const CartesianGrid: any;
+  export const Legend: any;
+  export const Sankey: any;
 }
 
 interface ImportMetaEnv {
