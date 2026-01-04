@@ -183,12 +183,6 @@ python scraper.py --dry-run
 
 ---
 
-## License
-
-MIT
-
----
-
 ## Author
 
 Skanda Nagaraja
