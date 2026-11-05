@@ -317,7 +317,42 @@ def scrape_markdown(repo: str, path: str = "README.md") -> List[Dict]:
             }
         )
 
-    # 2) Parse Markdown tables with HTML anchors (e.g., speedyapply NEW_GRAD_USA.md)
+    # 2) Parse HTML <table> rows (e.g., SimplifyJobs README):
+    #    <td>Company</td><td>Role</td><td>Location</td><td>Apply links</td><td>Age</td>
+    if "<tr>" in text:
+        soup = BeautifulSoup(text, "html.parser")
+        last_company = ""
+        for tr in soup.find_all("tr"):
+            tds = tr.find_all("td")
+            if len(tds) < 4:
+                continue
+            company = tds[0].get_text(" ", strip=True).replace("🔥", "").strip()
+            if company in ("↳", ""):
+                company = last_company
+            else:
+                last_company = company
+            title = tds[1].get_text(" ", strip=True)
+            location = tds[2].get_text(", ", strip=True)
+            anchor = tds[3].find("a", href=True)
+            if not anchor:
+                continue  # closed (🔒) listings have no link
+            link_clean = anchor["href"].strip()
+            if link_clean in seen_urls:
+                continue
+            seen_urls.add(link_clean)
+            jobs.append(
+                {
+                    "company": company,
+                    "title": title or company,
+                    "location": location,
+                    "url": link_clean,
+                    "source": f"{repo}/{path}",
+                    "posted": None,
+                }
+            )
+
+    # 3) Parse Markdown tables with HTML anchors (e.g., speedyapply NEW_GRAD_USA.md)
+    last_company = ""
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not (line.startswith("|") and "href=" in line):
@@ -332,10 +367,16 @@ def scrape_markdown(repo: str, path: str = "README.md") -> List[Dict]:
         company_cell = cells[1] if len(cells) > 1 else ""
         title_cell = cells[2] if len(cells) > 2 else ""
         location_cell = cells[3] if len(cells) > 3 else ""
-        # "Posting" column (apply link) is commonly at index 5
-        posting_cell = cells[5] if len(cells) > 5 else ""
+        # Apply link column varies by repo (index 4 or 5); take the first cell after
+        # location that contains a link.
+        posting_cell = next((c for c in cells[4:] if "href=" in c), "")
 
         company_name = _extract_anchor_text(company_cell) or _strip_html(company_cell)
+        company_name = (company_name or "").replace("**", "").strip()
+        if company_name in ("↳", ""):
+            company_name = last_company
+        else:
+            last_company = company_name
         title = _strip_html(title_cell)
         location = _strip_html(location_cell)
         apply_url = _extract_first_href(posting_cell)

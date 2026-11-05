@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: write # lets the keep-alive step below re-enable this workflow
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,4 +46,10 @@ jobs:
           # Keep runs efficient and polite
           python job-radar/scraper.py --resolve-links --resolve-limit 60
 
-
+      # GitHub disables scheduled workflows after 60 days without repo commits.
+      # Re-enabling via the API resets that timer, so the cron keeps running.
+      - name: Keep workflow alive
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/scrape.yml/enable" || true
